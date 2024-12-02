@@ -105,13 +105,20 @@ fn write_to_file(filename: &str, data: &str) -> Result<()> {
 }
 
 fn get_cpu_names(path: &str) -> Result<Vec<String>> {
+    let cpu_prefix = "cpu";
     let cpu_regex = Regex::new(r"^cpu\d+$").unwrap();
 
-    let files: Vec<String> = read_dir(path)?
+    let mut files: Vec<String> = read_dir(path)?
         .filter_map(|entry| entry.ok()) 
         .filter(|entry| cpu_regex.is_match(&entry.file_name().to_string_lossy()))
         .map(|entry| entry.file_name().into_string().unwrap_or_default()) 
         .collect();
+
+    files.sort_by(|a, b| {
+        let a_num = a.replace(cpu_prefix, "").parse::<u32>().unwrap_or(0);
+        let b_num = b.replace(cpu_prefix, "").parse::<u32>().unwrap_or(0);
+        a_num.cmp(&b_num)
+    });
 
     return Ok(files);
 }
