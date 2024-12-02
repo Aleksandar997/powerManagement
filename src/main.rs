@@ -1,10 +1,7 @@
 use clap::{Parser, Subcommand};
 use regex::Regex;
-use std::fs::{File};
-use std::io::{BufReader, Read, Write};
-                              
-use std::fs;
-use std::io;
+use std::fs::{File,read_dir};
+use std::io::{Read, Write, Result, Error, ErrorKind};                
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -18,11 +15,13 @@ enum Commands {
     #[clap(visible_alias("l"))]
     #[clap(about("Lists available power modes"))]
     List,
+
     #[clap(visible_alias("s"))]
     #[clap(about("Sets new power mode"))]
     Set {
         value: String
     },
+    
     #[clap(visible_alias("g"))]
     #[clap(about("Gets current power mode"))]
     GetCurr
@@ -40,7 +39,7 @@ static POWER_MODES: [&str; 6] = [
 static CPU_ROOT_PATH: &str = "/sys/devices/system/cpu";
 static SINGLE_CPU_ROOT_FORMAT_PATH: &str = "/cpufreq/scaling_governor";
 
-fn main()-> io::Result<()> {
+fn main()-> Result<()> {
     let args = Args::parse();
 
     match args.cmd {
@@ -58,7 +57,7 @@ fn list_command() {
     }
 }
 
-fn get_curr_command() -> io::Result<()> {
+fn get_curr_command() -> Result<()> {
     let cpu_names = get_cpu_names(CPU_ROOT_PATH)?;
 
     for cpu_name in cpu_names {
@@ -73,10 +72,10 @@ fn get_curr_command() -> io::Result<()> {
     Ok(())
 }
 
-fn set_command(value: &str) -> io::Result<()> {
+fn set_command(value: &str) -> Result<()> {
     if !POWER_MODES.contains(&value) {
         eprintln!("Invalid power mode: {}", value);
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "Invalid power mode"));
+        return Err(Error::new(ErrorKind::InvalidInput, "Invalid power mode"));
     }
 
     let cpu_names = match get_cpu_names(CPU_ROOT_PATH) {
@@ -99,16 +98,16 @@ fn set_command(value: &str) -> io::Result<()> {
     Ok(())
 }
 
-fn write_to_file(filename: &str, data: &str) -> io::Result<()> {
+fn write_to_file(filename: &str, data: &str) -> Result<()> {
     let mut file = File::create(filename)?;
     file.write_all(data.as_bytes())?;
     Ok(())
 }
 
-fn get_cpu_names(path: &str) -> io::Result<Vec<String>> {
+fn get_cpu_names(path: &str) -> Result<Vec<String>> {
     let cpu_regex = Regex::new(r"^cpu\d+$").unwrap();
 
-    let files: Vec<String> = fs::read_dir(path)?
+    let files: Vec<String> = read_dir(path)?
         .filter_map(|entry| entry.ok()) 
         .filter(|entry| cpu_regex.is_match(&entry.file_name().to_string_lossy()))
         .map(|entry| entry.file_name().into_string().unwrap_or_default()) 
